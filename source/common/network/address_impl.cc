@@ -15,6 +15,8 @@
 #include "common/common/fmt.h"
 #include "common/common/utility.h"
 
+#include "vcl/vppcom.h"
+
 namespace Envoy {
 namespace Network {
 namespace Address {
@@ -63,7 +65,8 @@ Address::InstanceConstSharedPtr addressFromSockAddr(const sockaddr_storage& ss, 
 InstanceConstSharedPtr addressFromFd(int fd) {
   sockaddr_storage ss;
   socklen_t ss_len = sizeof ss;
-  int rc = ::getsockname(fd, reinterpret_cast<sockaddr*>(&ss), &ss_len);
+  const int rc =
+      vppcom_session_attr(fd, VPPCOM_ATTR_GET_LCL_ADDR, reinterpret_cast<sockaddr*>(&ss), &ss_len);
   if (rc != 0) {
     throw EnvoyException(
         fmt::format("getsockname failed for '{}': ({}) {}", fd, errno, strerror(errno)));
@@ -71,7 +74,7 @@ InstanceConstSharedPtr addressFromFd(int fd) {
   int socket_v6only = 0;
   if (ss.ss_family == AF_INET6) {
     socklen_t size_int = sizeof(socket_v6only);
-    RELEASE_ASSERT(::getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &socket_v6only, &size_int) == 0);
+    RELEASE_ASSERT(vppcom_session_attr(fd, VPPCOM_ATTR_GET_V6ONLY, &socket_v6only, &size_int) == 0);
   }
   return addressFromSockAddr(ss, ss_len, rc == 0 && socket_v6only);
 }
@@ -79,7 +82,8 @@ InstanceConstSharedPtr addressFromFd(int fd) {
 InstanceConstSharedPtr peerAddressFromFd(int fd) {
   sockaddr_storage ss;
   socklen_t ss_len = sizeof ss;
-  const int rc = ::getpeername(fd, reinterpret_cast<sockaddr*>(&ss), &ss_len);
+  const int rc =
+      vppcom_session_attr(fd, VPPCOM_ATTR_GET_PEER_ADDR, reinterpret_cast<sockaddr*>(&ss), &ss_len);
   if (rc != 0) {
     throw EnvoyException(fmt::format("getpeername failed for '{}': {}", fd, strerror(errno)));
   }
@@ -127,7 +131,13 @@ int InstanceBase::socketFromSocketType(SocketType socketType) const {
     domain = AF_UNIX;
   }
 
-  int fd = ::socket(domain, flags, 0);
+  (void)domain; // You don't NEED to know its V6 or not really, until bind()
+  std::string str{"envoy"};
+  char* app_name = new char[str.length() + 1];
+  strcpy(app_name, str.c_str());
+  int rv = vppcom_app_create(app_name);
+  ASSERT(rv == 0);
+  int fd = vppcom_session_create(VPPCOM_PROTO_TCP, 0 /* Is nonblocking */);
   RELEASE_ASSERT(fd != -1);
 
 #ifdef __APPLE__
@@ -171,13 +181,19 @@ Ipv4Instance::Ipv4Instance(uint32_t port) : InstanceBase(Type::Ip) {
 }
 
 int Ipv4Instance::bind(int fd) const {
-  return ::bind(fd, reinterpret_cast<const sockaddr*>(&ip_.ipv4_.address_),
-                sizeof(ip_.ipv4_.address_));
+  vppcom_endpt_t ep;
+  ep.is_ip4 = 1;
+  memcpy(ep.ip, &ip_.ipv4_.address_.sin_addr.s_addr, sizeof(ip_.ipv4_.address_.sin_addr.s_addr));
+  ep.port = static_cast<uint16_t>(ip_.ipv4_.address_.sin_port);
+  return vppcom_session_bind(fd, &ep);
 }
 
 int Ipv4Instance::connect(int fd) const {
-  return ::connect(fd, reinterpret_cast<const sockaddr*>(&ip_.ipv4_.address_),
-                   sizeof(ip_.ipv4_.address_));
+  vppcom_endpt_t ep;
+  ep.is_ip4 = 1;
+  memcpy(ep.ip, &ip_.ipv4_.address_.sin_addr.s_addr, sizeof(ip_.ipv4_.address_.sin_addr.s_addr));
+  ep.port = static_cast<uint16_t>(ip_.ipv4_.address_.sin_port);
+  return vppcom_session_connect(fd, &ep);
 }
 
 int Ipv4Instance::socket(SocketType type) const { return socketFromSocketType(type); }

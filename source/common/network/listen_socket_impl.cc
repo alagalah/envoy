@@ -2,6 +2,7 @@
 
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <vcl/vppcom.h>
 
 #include <string>
 
@@ -34,7 +35,8 @@ TcpListenSocket::TcpListenSocket(const Address::InstanceConstSharedPtr& address,
   RELEASE_ASSERT(fd_ != -1);
 
   int on = 1;
-  int rc = setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+  uint32_t onlen = sizeof on;
+  int rc = vppcom_session_attr(fd_, VPPCOM_ATTR_SET_REUSEADDR, &on, &onlen);
   RELEASE_ASSERT(rc != -1);
 
   if (bind_to_port) {
