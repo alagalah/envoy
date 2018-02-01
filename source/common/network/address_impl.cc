@@ -15,6 +15,8 @@
 #include "common/common/fmt.h"
 #include "common/common/utility.h"
 
+#include "vcl/vppcom.h"
+
 namespace Envoy {
 namespace Network {
 namespace Address {
@@ -171,6 +173,9 @@ Ipv4Instance::Ipv4Instance(uint32_t port) : InstanceBase(Type::Ip) {
 }
 
 int Ipv4Instance::bind(int fd) const {
+  vppcom_endpt_t ep = {0, 0, 0, 0};
+  auto foo = vppcom_session_bind(0, &ep);
+  (void)foo;
   return ::bind(fd, reinterpret_cast<const sockaddr*>(&ip_.ipv4_.address_),
                 sizeof(ip_.ipv4_.address_));
 }

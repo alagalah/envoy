@@ -12,6 +12,7 @@ envoy_cc_library(
     name = "address_lib",
     srcs = ["address_impl.cc"],
     hdrs = ["address_impl.h"],
+    external_deps = ["vppcom"],
     deps = [
         "//include/envoy/network:address_interface",
         "//source/common/common:assert_lib",
