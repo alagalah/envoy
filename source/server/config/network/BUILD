@@ -146,3 +146,19 @@ envoy_cc_library(
         "@envoy_api//envoy/api/v2/auth:cert_cc",
     ],
 )
+
+envoy_cc_library(
+    name = "vpp_socket_lib",
+    srcs = ["vpp_socket.cc"],
+    hdrs = ["vpp_socket.h"],
+    deps = [
+        "//include/envoy/network:transport_socket_interface",
+        "//include/envoy/registry",
+        "//include/envoy/server:transport_socket_config_interface",
+        "//source/common/common:assert_lib",
+        "//source/common/config:well_known_names",
+        "//source/common/protobuf:utility_lib",
+        "//source/common/vpp:vpp_socket_lib",
+        "@envoy_api//envoy/api/v2/core:base_cc",
+    ],
+)
