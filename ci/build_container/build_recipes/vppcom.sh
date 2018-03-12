@@ -3,7 +3,7 @@
 set -e
 
 #git clone https://gerrit.fd.io/r/vpp
-cp -r $VPPSRC -T ./vpp
+rsync -av --exclude='*.git*' --exclude='*.ccache*' $VPPSRC/. ./vpp
 BASEDIR=$(pwd)
 ARTIFACT_BASE=${BASEDIR}/vpp/build-root/install-vpp_debug-native/vpp
 
